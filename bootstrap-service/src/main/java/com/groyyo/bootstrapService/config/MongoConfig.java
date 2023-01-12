@@ -1,8 +1,10 @@
 package com.groyyo.bootstrapService.config;
 
-import com.mongodb.*;
-import com.groyyo.core.mongobase.entity.MongoEventListener;
-import lombok.NonNull;
+import java.math.BigDecimal;
+import java.util.Arrays;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import org.bson.types.Decimal128;
 import org.springframework.beans.factory.annotation.Value;
@@ -16,150 +18,144 @@ import org.springframework.data.mongodb.core.WriteResultChecking;
 import org.springframework.data.mongodb.core.convert.MongoCustomConversions;
 import org.springframework.data.mongodb.repository.config.EnableMongoRepositories;
 
-import java.math.BigDecimal;
-import java.util.Arrays;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.concurrent.TimeUnit;
+import com.groyyo.core.mongobase.entity.MongoEventListener;
+import com.mongodb.MongoClient;
+import com.mongodb.MongoClientOptions;
+import com.mongodb.MongoCredential;
+import com.mongodb.ReadConcern;
+import com.mongodb.ReadPreference;
+import com.mongodb.ServerAddress;
+import com.mongodb.WriteConcern;
 
+import lombok.NonNull;
 
 @Configuration
 @EnableMongoAuditing
-@EnableMongoRepositories(basePackages={"com.groyyo.core.generic.validation.repository",
-        "com.groyyo.itemmaster.generic.repository"})
-public class MongoConfig extends AbstractMongoConfiguration  {
+@EnableMongoRepositories(basePackages = { "com.groyyo.bootstrapService.repository" })
+public class MongoConfig extends AbstractMongoConfiguration {
 
-    @Value("${mongodb.readPreference}")
-    private String readPreference;
+	@Value("${mongodb.readPreference}")
+	private String readPreference;
 
-    @Value("${mongodb.writeConcern.w}")
-    private String writeConcernW;
+	@Value("${mongodb.writeConcern.w}")
+	private String writeConcernW;
 
-    @Value("${mongodb.writeConcern.j}")
-    private Boolean writeConcernJ;
+	@Value("${mongodb.writeConcern.j}")
+	private Boolean writeConcernJ;
 
-    @Value("${mongodb.writeConcern.wtimeout}")
-    private Long writeConcernTimeOut;
+	@Value("${mongodb.writeConcern.wtimeout}")
+	private Long writeConcernTimeOut;
 
-    @Value("${mongodb.readConcernLevel}")
-    private String readConcernLevel;
+	@Value("${mongodb.readConcernLevel}")
+	private String readConcernLevel;
 
-    @Value("${mongodb.maxPoolSize}")
-    private int maxPoolSize;
+	@Value("${mongodb.maxPoolSize}")
+	private int maxPoolSize;
 
-    @Value("${mongodb.minPoolSize}")
-    private int minPoolSize;
+	@Value("${mongodb.minPoolSize}")
+	private int minPoolSize;
 
-    @Value("${mongodb.maxIdleTimeMS}")
-    private int maxIdleTimeMS;
+	@Value("${mongodb.maxIdleTimeMS}")
+	private int maxIdleTimeMS;
 
-    @Value("${mongodb.servers}")
-    private String servers;
+	@Value("${mongodb.servers}")
+	private String servers;
 
-    @Value("${mongodb.user}")
-    private String username;
+	@Value("${mongodb.user}")
+	private String username;
 
-    @Value("${mongodb.password}")
-    private String password;
+	@Value("${mongodb.password}")
+	private String password;
 
-    @Value("${mongodb.databaseName}")
-    private String database;
+	@Value("${mongodb.databaseName}")
+	private String database;
 
-    @Value("${mongodb.authDatabase}")
-    private String authDatabase;
+	@Value("${mongodb.authDatabase}")
+	private String authDatabase;
 
+	@Override
+	public MongoClient mongoClient() {
 
-    @Override
-    public MongoClient mongoClient() {
+		ReadPreference readPref = (readPreference == null) ? MongoConstants.readPref.get("default") : MongoConstants.readPref.get(readPreference.trim().toLowerCase());
+		if (readPref == null)
+			MongoConstants.readPref.get("default");
 
-        ReadPreference readPref = (readPreference==null)? MongoConstants.readPref.get("default"): MongoConstants.readPref.get(readPreference.trim().toLowerCase());
-        if(readPref==null) MongoConstants.readPref.get("default");
+		ReadConcern readConcern = (readConcernLevel == null) ? MongoConstants.readConcern.get("default") : MongoConstants.readConcern.get(readConcernLevel);
+		if (readConcern == null)
+			MongoConstants.readConcern.get("default");
 
-        ReadConcern readConcern = (readConcernLevel==null)? MongoConstants.readConcern.get("default"): MongoConstants.readConcern.get(readConcernLevel);
-        if(readConcern==null) MongoConstants.readConcern.get("default");
+		WriteConcern writeConcern;
+		if (writeConcernJ == null && writeConcernTimeOut == null && writeConcernW == null)
+			writeConcern = MongoConstants.DEFAULT_WRITE_CONCERN;
+		else {
+			if (writeConcernW.trim().toLowerCase().equalsIgnoreCase("majority"))
+				writeConcern = WriteConcern.MAJORITY;
+			else {
+				writeConcern = new WriteConcern(Integer.parseInt(writeConcernW));
+			}
+		}
+		writeConcern.withJournal(writeConcernJ == null ? MongoConstants.DEFAULT_WRITECONCERN_J : writeConcernJ)
+				.withWTimeout(writeConcernTimeOut == null ? MongoConstants.DEFAULT_WRITECONCERN_WTIMEOUT : writeConcernTimeOut, TimeUnit.MILLISECONDS);
 
-        WriteConcern writeConcern;
-        if(writeConcernJ==null && writeConcernTimeOut==null && writeConcernW==null)
-            writeConcern = MongoConstants.DEFAULT_WRITE_CONCERN;
-        else
-        {
-            if(writeConcernW.trim().toLowerCase().equalsIgnoreCase("majority"))
-                writeConcern = WriteConcern.MAJORITY;
-            else
-            {
-                writeConcern = new WriteConcern(Integer.parseInt(writeConcernW));
-            }
-        }
-        writeConcern.withJournal(writeConcernJ==null? MongoConstants.DEFAULT_WRITECONCERN_J:writeConcernJ).
-                withWTimeout(writeConcernTimeOut==null? MongoConstants.DEFAULT_WRITECONCERN_WTIMEOUT:writeConcernTimeOut,TimeUnit.MILLISECONDS);
+		MongoClientOptions options = MongoClientOptions.builder().readPreference(readPref).writeConcern(writeConcern).readConcern(readConcern)
+				.connectionsPerHost(maxPoolSize == 0 ? MongoConstants.DEFAULT_MAX_POOL_SIZE : maxPoolSize)
+				.minConnectionsPerHost((minPoolSize == 0 || minPoolSize > maxPoolSize) ? MongoConstants.DEFAULT_MIN_POOL_SIZE : minPoolSize)
+				.maxConnectionIdleTime(maxIdleTimeMS == 0 ? MongoConstants.DEFAULT_MAX_IDLE_TIMEMS : maxIdleTimeMS).build();
 
+		/*
+		 * List of Servers expected in configuration in below format:
+		 * localhost:7845,localhost:7856
+		 */
+		String[] serverArr = servers.split(",");
+		List<ServerAddress> address = new LinkedList<>();
 
-        MongoClientOptions options = MongoClientOptions.builder().
-                readPreference(readPref).
-                writeConcern(writeConcern).
-                readConcern(readConcern).
-                connectionsPerHost(maxPoolSize==0? MongoConstants.DEFAULT_MAX_POOL_SIZE:maxPoolSize).
-                minConnectionsPerHost((minPoolSize==0 || minPoolSize>maxPoolSize)? MongoConstants.DEFAULT_MIN_POOL_SIZE:minPoolSize).
-                maxConnectionIdleTime(maxIdleTimeMS==0? MongoConstants.DEFAULT_MAX_IDLE_TIMEMS:maxIdleTimeMS).
-                build();
+		for (String s : serverArr) {
+			address.add(new ServerAddress(s.split(":")[0], Integer.parseInt(s.split(":")[1])));
+		}
 
-        /*
-        List of Servers expected in configuration in below format:
-        localhost:7845,localhost:7856
-         */
-        String[] serverArr = servers.split(",");
-        List<ServerAddress> address = new LinkedList<>();
+		MongoCredential credential = MongoCredential.createCredential(username, authDatabase == null ? database : authDatabase, password.toCharArray());
 
+		return new MongoClient(address, credential, options);
 
-        for(String s : serverArr)
-        {
-            address.add(new ServerAddress(s.split(":")[0],Integer.parseInt(s.split(":")[1])));
-        }
+	}
 
-        MongoCredential credential = MongoCredential.createCredential(username,authDatabase==null?database:authDatabase,password.toCharArray());
+	@Override
+	protected String getDatabaseName() {
+		return database;
+	}
 
-        return new MongoClient(address,credential,options);
+	@Override
+	@Bean
+	public MongoTemplate mongoTemplate() throws Exception {
+		MongoTemplate template = new MongoTemplate(mongoDbFactory(), mappingMongoConverter());
+		template.setWriteResultChecking(WriteResultChecking.EXCEPTION);
+		return template;
+	}
 
-    }
+	@Bean
+	public MongoEventListener mongoEventListener() {
+		return new MongoEventListener();
+	}
 
-    @Override
-    protected String getDatabaseName() {
-        return database;
-    }
+	@Bean
+	@Override
+	public MongoCustomConversions customConversions() {
+		return new MongoCustomConversions(Arrays.asList(
+				new Converter<BigDecimal, Decimal128>() {
 
-    @Override
-    @Bean
-    public MongoTemplate mongoTemplate() throws Exception {
-        MongoTemplate template= new MongoTemplate(mongoDbFactory(), mappingMongoConverter());
-        template.setWriteResultChecking(WriteResultChecking.EXCEPTION);
-        return template;
-    }
+					@Override
+					public Decimal128 convert(@NonNull BigDecimal source) {
+						return new Decimal128(source);
+					}
+				},
 
-    @Bean
-    public MongoEventListener mongoEventListener() {
-        return new MongoEventListener();
-    }
+				new Converter<Decimal128, BigDecimal>() {
 
-    @Bean
-    @Override
-    public MongoCustomConversions customConversions()  {
-        return new MongoCustomConversions(Arrays.asList(
-                new Converter<BigDecimal, Decimal128>() {
+					@Override
+					public BigDecimal convert(@NonNull Decimal128 source) {
+						return source.bigDecimalValue();
+					}
 
-                    @Override
-                    public Decimal128 convert(@NonNull BigDecimal source) {
-                        return new Decimal128(source);
-                    }
-                },
-
-                new Converter<Decimal128, BigDecimal>() {
-
-                    @Override
-                    public BigDecimal convert(@NonNull Decimal128 source) {
-                        return source.bigDecimalValue();
-                    }
-
-                }
-        ));
-    }
+				}));
+	}
 }
