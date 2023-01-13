@@ -16,17 +16,15 @@ import com.groyyo.core.kafka.consumer.BaseConsumer;
 import lombok.extern.log4j.Log4j2;
 
 /**
- * @author naveen.kumar
- *
- * @date 12-Nov-2019
+ * @author nipunaggarwal
  *
  **/
 @Log4j2
 @Service
 @Lazy(false)
-public class ItemBackFillConsumer<T> extends BaseConsumer<T> {
+public class Consumer<T> extends BaseConsumer<T> {
 
-	//@KafkaListener(topics = { "${item.backfill.error.topic}" }, idIsGroup = false, id = "item-master-back-fill-errors")
+	@KafkaListener(topics = { "${kafka.base.topic}" }, idIsGroup = false, id = "kafka-base-topic")
 	public void receive(ConsumerRecords<String, String> records) {
 
 		if (records != null && !records.isEmpty()) {

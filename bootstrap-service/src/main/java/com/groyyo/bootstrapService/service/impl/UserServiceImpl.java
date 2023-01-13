@@ -10,6 +10,7 @@ import java.util.Objects;
 
 import org.apache.commons.collections4.CollectionUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import com.groyyo.bootstrapService.adapter.UserAdapter;
@@ -18,6 +19,7 @@ import com.groyyo.bootstrapService.dto.request.UserRequestDto;
 import com.groyyo.bootstrapService.dto.response.UserResponseDto;
 import com.groyyo.bootstrapService.entity.UserEntity;
 import com.groyyo.bootstrapService.service.UserService;
+import com.groyyo.core.kafka.producer.NotificationProducer;
 
 import lombok.extern.log4j.Log4j2;
 
@@ -28,6 +30,12 @@ import lombok.extern.log4j.Log4j2;
 @Service
 @Log4j2
 public class UserServiceImpl implements UserService {
+
+	@Value("${kafka.base.topic}")
+	private String kafkaBaseTopic;
+
+	@Autowired
+	private NotificationProducer notificationProducer;
 
 	@Autowired
 	private UserDbService userDbService;
@@ -76,7 +84,11 @@ public class UserServiceImpl implements UserService {
 			return null;
 		}
 
-		return UserAdapter.buildResponseFromEntity(userEntity);
+		UserResponseDto userResponseDto = UserAdapter.buildResponseFromEntity(userEntity);
+
+		notificationProducer.publish(kafkaBaseTopic, UserResponseDto.class.getName(), userEntity);
+
+		return userResponseDto;
 	}
 
 	@Override
