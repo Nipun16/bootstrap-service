@@ -40,11 +40,11 @@ public class AppConfig {
 		return mapper;
 	}
 
-	@Bean("s3Client")
-	public AmazonS3 s3Client() {
-		log.info("Creating bean for S3Client.");
-		return AmazonS3ClientBuilder.defaultClient();
-
-	}
+//	@Bean("s3Client")
+//	public AmazonS3 s3Client() {
+//		log.info("Creating bean for S3Client.");
+//		return AmazonS3ClientBuilder.defaultClient();
+//
+//	}
 
 }
